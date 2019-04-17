@@ -126,3 +126,71 @@ function myquery(params) {
         }
     });
 }
+
+onchange4myhosts()
+function onchange4myhosts(params) {
+    var biz_id = $('#selectBiz').val()
+    var set_id
+    $.ajax({
+        type: "get",
+        url: site_url + "search_host/",
+        data: {
+            'biz_id': biz_id,
+            'set_id': set_id
+        },
+        dataType: "json",
+        success: function (response) {
+
+            console.log(response)
+            str = ''
+            for (let index = 0; index < response.data.length; index++) {
+                const element = response.data[index];
+                str += `<tr data-ip="${element.host.bk_host_innerip}" data-bk_cloud_id="${element.host.bk_cloud_id[0].bk_inst_id}">
+                    <td><input type="checkbox" value=""></td>
+                    <td>${index}</td>
+                    <td>${element.host.bk_host_innerip}</td>
+                    <td>${element.host.bk_os_name}</td>
+                </tr>
+                `
+            }
+            $('#tbody-ip1').html(str)
+        }
+    });
+};
+
+function clickbb(params) {
+    // 业务id
+    var biz_id = $('#selectBiz').val()
+    var task_id = $('#task_type_list').val()
+    var records = $('#table_demo2>tbody input:checked').closest('tr');
+
+    if (!records.length) {
+        alert('请选择执行的ip记录！');
+        return false;
+    }
+    // 选中ip列表
+    var ip_list = []
+    $(records).each(function (indexInArray, valueOfElement) {
+        ip_list.push({
+            'ip': $(this).attr('data-ip'),
+            'bk_cloud_id': $(this).attr('data-bk_cloud_id')
+        })
+    });
+
+    param = {
+        'biz_id': biz_id,
+        'task_id': task_id,
+        'ip_list': ip_list
+    }
+    $.ajax({
+        type: "post",
+        url: site_url + "fast_execute_script_for_task/",
+        data: JSON.stringify(param),
+        dataType: "json",
+        success: function (response) {
+            console.log(response)
+        }
+    });
+
+
+};

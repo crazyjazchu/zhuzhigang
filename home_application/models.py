@@ -10,6 +10,7 @@ See the License for the specific language governing permissions and limitations 
 """
 from django.db import models
 
+
 # from django.db import models
 
 class OptHistory(models.Model):
@@ -30,6 +31,24 @@ class OptHistory(models.Model):
     class Meta:
         verbose_name = '操作记录信息'
         verbose_name_plural = '操作记录信息'
+
+    def toDic(self):
+        return dict([(attr, getattr(self, attr)) for attr in [f.name for f in self._meta.fields]])
+
+
+class TaskInfo(models.Model):
+    task_type = models.CharField(u'任务类型', max_length=256)
+    script_param = models.CharField(u'脚本参数', max_length=1000, default='')
+    script_content = models.CharField(u'脚本内容', max_length=10000, null=True)
+
+    def __unicode__(self):
+        return '{}.{}.{}'.format(self.task_type,
+                                 self.script_param,
+                                 self.script_content)
+
+    class Meta:
+        verbose_name = '任务信息'
+        verbose_name_plural = '任务信息'
 
     def toDic(self):
         return dict([(attr, getattr(self, attr)) for attr in [f.name for f in self._meta.fields]])

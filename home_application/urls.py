@@ -21,6 +21,9 @@ urlpatterns = patterns(
     (r'^execute_job/$', 'execute_job'),
     (r'^history/$', 'history'),
     (r'^get_history/$', 'get_history'),
+    (r'^fast_execute_script/$', 'fast_execute_script'),
+    (r'^get_task_list/$', 'get_task_list'),
+    (r'^fast_execute_script_for_task/$', 'fast_execute_script_for_task'),
     # (r'^dev-guide/$', 'dev_guide'),
     # (r'^contactus/$', 'contactus'),
 )

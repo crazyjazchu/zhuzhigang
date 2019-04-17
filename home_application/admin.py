@@ -19,3 +19,9 @@ See the License for the specific language governing permissions and limitations 
 #
 # admin.site.register(aaaa)
 # ===============================================================================
+
+from django.contrib import admin
+
+from home_application.models import TaskInfo
+
+admin.site.register(TaskInfo)

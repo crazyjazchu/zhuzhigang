@@ -8,14 +8,15 @@ Unless required by applicable law or agreed to in writing, software distributed 
 an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and limitations under the License.
 """
+import base64
 import json
 from datetime import datetime, time
 
 from blueking.component.shortcuts import get_client_by_request
 from common.log import logger
 from common.mymako import render_mako_context, render_json
-from home_application.celery_tasks import async_task
-from home_application.models import OptHistory
+from home_application.celery_tasks import async_task, async_task_fastscript
+from home_application.models import OptHistory, TaskInfo
 
 
 def home(request):
@@ -95,57 +96,105 @@ def search_host(request):
     myclient.set_bk_api_ver('v2')
     biz_id = request.GET.get('biz_id')
     set_id = request.GET.get('set_id')
-    kwargs = {
-        "bk_biz_id": int(biz_id),
-        "ip": {
-            "data": [],
-            "exact": 1,
-            "flag": "bk_host_innerip|bk_host_outerip"
-        },
-        "condition": [
-            {
-                "bk_obj_id": "host",
-                "fields": [],
-                "condition": []
+    kwargs = {}
+    if set_id is None:
+        kwargs = {
+            "bk_biz_id": int(biz_id),
+            "ip": {
+                "data": [],
+                "exact": 1,
+                "flag": "bk_host_innerip|bk_host_outerip"
             },
-            {
-                "bk_obj_id": "module",
-                "fields": [],
-                "condition": []
+            "condition": [
+                {
+                    "bk_obj_id": "host",
+                    "fields": [],
+                    "condition": []
+                },
+                {
+                    "bk_obj_id": "module",
+                    "fields": [],
+                    "condition": []
+                },
+                {
+                    "bk_obj_id": "set",
+                    "fields": [],
+                    "condition": []
+                },
+                {
+                    "bk_obj_id": "biz",
+                    "fields": [
+                        "default",
+                        "bk_biz_id",
+                        "bk_biz_name",
+                    ],
+                    "condition": [
+                        {
+                            "field": "bk_biz_id",
+                            "operator": "$eq",
+                            "value": int(biz_id)
+                        }
+                    ]
+                },
+                {
+                    "bk_obj_id": "object",
+                    "fields": [],
+                    "condition": []
+                }
+            ],
+        }
+    else:
+        kwargs = {
+            "bk_biz_id": int(biz_id),
+            "ip": {
+                "data": [],
+                "exact": 1,
+                "flag": "bk_host_innerip|bk_host_outerip"
             },
-            {
-                "bk_obj_id": "set",
-                "fields": [],
-                "condition": [
-                    {
-                        "field": "bk_set_id",
-                        "operator": "$eq",
-                        "value": int(set_id)
-                    }
-                ]
-            },
-            {
-                "bk_obj_id": "biz",
-                "fields": [
-                    "default",
-                    "bk_biz_id",
-                    "bk_biz_name",
-                ],
-                "condition": [
-                    {
-                        "field": "bk_biz_id",
-                        "operator": "$eq",
-                        "value": int(biz_id)
-                    }
-                ]
-            },
-            {
-                "bk_obj_id": "object",
-                "fields": [],
-                "condition": []
-            }
-        ],
-    }
+            "condition": [
+                {
+                    "bk_obj_id": "host",
+                    "fields": [],
+                    "condition": []
+                },
+                {
+                    "bk_obj_id": "module",
+                    "fields": [],
+                    "condition": []
+                },
+                {
+                    "bk_obj_id": "set",
+                    "fields": [],
+                    "condition": [
+                        {
+                            "field": "bk_set_id",
+                            "operator": "$eq",
+                            "value": int(set_id)
+                        }
+                    ]
+                },
+                {
+                    "bk_obj_id": "biz",
+                    "fields": [
+                        "default",
+                        "bk_biz_id",
+                        "bk_biz_name",
+                    ],
+                    "condition": [
+                        {
+                            "field": "bk_biz_id",
+                            "operator": "$eq",
+                            "value": int(biz_id)
+                        }
+                    ]
+                },
+                {
+                    "bk_obj_id": "object",
+                    "fields": [],
+                    "condition": []
+                }
+            ],
+        }
     host_list = []
     myresult = myclient.cc.search_host(kwargs)
     if myresult.get('result'):
@@ -188,112 +237,7 @@ def execute_job(request):
     kwargs = {
         "bk_biz_id": int(biz_id),
         "bk_job_id": int(job_id),
-        # "global_vars": [
-        #     {
-        #         "id": 436,
-        #         "custom_query_id": [
-        #             "3",
-        #             "5",
-        #             "7"
-        #         ],
-        #         "ip_list": [
-        #             {
-        #                 "bk_cloud_id": 0,
-        #                 "ip": "10.0.0.1"
-        #             },
-        #             {
-        #                 "bk_cloud_id": 0,
-        #                 "ip": "10.0.0.2"
-        #             }
-        #         ]
-        #     },
-        #     {
-        #         "id": 437,
-        #         "value": "new String value"
-        #     }
-        # ],
         "steps": steps
-        #     [{
-        #     "script_timeout": 1000,
-        #     "script_param": "aGVsbG8=",
-        #     "ip_list": [
-        #         {
-        #             "bk_cloud_id": 0,
-        #             "ip": "10.0.0.1"
-        #         },
-        #         {
-        #             "bk_cloud_id": 0,
-        #             "ip": "10.0.0.2"
-        #         }
-        #     ],
-        #     "custom_query_id": [
-        #         "3"
-        #     ],
-        #     "script_id": 1,
-        #     "script_content": "ZWNobyAkMQ==",
-        #     "step_id": 200,
-        #     "account": "root",
-        #     "script_type": 1
-        # },
-        #     {
-        #         "script_timeout": 1003,
-        #         "ip_list": [
-        #             {
-        #                 "bk_cloud_id": 0,
-        #                 "ip": "10.0.0.1"
-        #             },
-        #             {
-        #                 "bk_cloud_id": 0,
-        #                 "ip": "10.0.0.2"
-        #             }
-        #         ],
-        #         "custom_query_id": [
-        #             "3"
-        #         ],
-        #         "script_id": 1,
-        #         "script_content": "ZWNobyAkMQ==",
-        #         "step_id": 1,
-        #         "db_account_id": 31
-        #     },
-        #     {
-        #         "file_target_path": "/tmp/[FILESRCIP]/",
-        #         "file_source": [
-        #             {
-        #                 "files": [
-        #                     "/tmp/REGEX:[a-z]*.txt"
-        #                 ],
-        #                 "account": "root",
-        #                 "ip_list": [
-        #                     {
-        #                         "bk_cloud_id": 0,
-        #                         "ip": "10.0.0.1"
-        #                     },
-        #                     {
-        #                         "bk_cloud_id": 0,
-        #                         "ip": "10.0.0.2"
-        #                     }
-        #                 ],
-        #                 "custom_query_id": [
-        #                     "3"
-        #                 ]
-        #             }
-        #         ],
-        #         "ip_list": [
-        #             {
-        #                 "bk_cloud_id": 0,
-        #                 "ip": "10.0.0.1"
-        #             },
-        #             {
-        #                 "bk_cloud_id": 0,
-        #                 "ip": "10.0.0.2"
-        #             }
-        #         ],
-        #         "custom_query_id": [
-        #             "3"
-        #         ],
-        #         "step_id": 2,
-        #         "account": "root"
-        #     }]
     }
     job_instance_id = 0
     myresult = myclient.job.execute_job(kwargs)
@@ -349,4 +293,145 @@ def test(request):
     return render_json({
         'result': True,
         'data': 'hello 程序员，Everything is OK!'
+    })
+
+
+def fast_execute_script(request):
+    req = json.loads(request.body)
+    username = request.user.username
+    myclient = get_client_by_request(request)
+    myclient.set_bk_api_ver('v2')
+    biz_id = req.get('biz_id')
+    content = req.get('content')
+    ip_list = req.get('ip_list')
+    kwargs = {
+        "bk_biz_id": int(biz_id),
+        # "script_id": 1,
+        "script_content": base64.b64encode(content),
+        "script_param": "",
+        "script_timeout": 1000,
+        "account": "root",
+        "is_param_sensitive": 0,
+        # 脚本类型：1(shell脚本)、2(bat脚本)、3(perl脚本)、4(python脚本)、5(Powershell脚本)
+        "script_type": 1,
+        "ip_list": ip_list,
+        #     [
+        #     {
+        #         "bk_cloud_id": 0,
+        #         "ip": "10.0.0.1"
+        #     },
+        #     {
+        #         "bk_cloud_id": 0,
+        #         "ip": "10.0.0.2"
+        #     }
+        # ],
+    }
+    job_instance_id = 0
+    myresult = myclient.job.fast_execute_script(kwargs)
+    if myresult.get('result'):
+        job_instance_id = myresult.get('data').get('job_instance_id')
+    else:
+        logger.info(u"快速执行脚本失败：%s" % myresult.get('message'))
+        job_instance_id = 0
+        return render_json({
+            'result': False,
+            'data': "快速执行脚本失败"
+        })
+    # 异步执行
+    async_task_fastscript.apply_async(args=(job_instance_id, biz_id, username), kwargs={})
+    return render_json({
+        'result': True,
+        'data': "执行成功,任务实例id为：" + job_instance_id
+    })
+
+
+def get_task_list(request):
+    """
+    获取所有任务类型
+    :return:
+    """
+    myclient = get_client_by_request(request)
+    myclient.set_bk_api_ver('v2')
+    kwargs = {
+        "fields": [
+            "bk_biz_id",
+            "bk_biz_name"
+        ],
+    }
+    biz_list = []
+    myresult = myclient.cc.search_business(kwargs)
+    if myresult.get('result'):
+        biz_list = myresult.get('data').get('info')
+    else:
+        logger.info(u"请求业务列表失败：%s" % myresult.get('message'))
+        biz_list = []
+
+    all_tasks = TaskInfo.objects.all()
+    task_type_list = []
+
+    for task in all_tasks:
+        task_type_list.append({
+            'id': task.id,
+            'type': task.task_type
+        })
+    return render_mako_context(request, '/home_application/index1.html', {
+        'result': True,
+        'task_type_list': task_type_list,
+        'biz_list': biz_list
+    })
+
+
+def fast_execute_script_for_task(request):
+    req = json.loads(request.body)
+    username = request.user.username
+    myclient = get_client_by_request(request)
+    myclient.set_bk_api_ver('v2')
+    biz_id = req.get('biz_id')
+    task_id = req.get('task_id')
+    ip_list = req.get('ip_list')
+    tasks = TaskInfo.objects.filter(id=task_id)
+    content = ''
+    if tasks:
+        for task in tasks:
+            content = task.script_content
+    else:
+        logger.error("脚本内容为空")
+    kwargs = {
+        "bk_biz_id": int(biz_id),
+        # "script_id": 1,
+        "script_content": base64.b64encode(content),
+        "script_param": "",
+        "script_timeout": 1000,
+        "account": "root",
+        "is_param_sensitive": 0,
+        # 脚本类型：1(shell脚本)、2(bat脚本)、3(perl脚本)、4(python脚本)、5(Powershell脚本)
+        "script_type": 1,
+        "ip_list": ip_list,
+        #     [
+        #     {
+        #         "bk_cloud_id": 0,
+        #         "ip": "10.0.0.1"
+        #     },
+        #     {
+        #         "bk_cloud_id": 0,
+        #         "ip": "10.0.0.2"
+        #     }
+        # ],
+    }
+    job_instance_id = 0
+    myresult = myclient.job.fast_execute_script(kwargs)
+    if myresult.get('result'):
+        job_instance_id = myresult.get('data').get('job_instance_id')
+    else:
+        logger.info(u"快速执行脚本失败：%s" % myresult.get('message'))
+        job_instance_id = 0
+        return render_json({
+            'result': False,
+            'data': "快速执行脚本失败"
+        })
+    # 异步执行
+    async_task_fastscript.apply_async(args=(job_instance_id, biz_id, username), kwargs={})
+    return render_json({
+        'result': True,
+        'data': "执行成功,脚本任务实例id为：" + job_instance_id
     })
